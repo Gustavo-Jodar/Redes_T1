@@ -3,28 +3,158 @@ import asyncio
 from grader.tcp import Servidor
 import re
 
+##Bytes que armazenam mensagens que não estão completas
+residuos = b""
+
+##Lista que mapeia os apelidos ativos e suas respectivas conexões
+apelidos = {}
+
+canais = {}
+
 
 def validar_nome(nome):
-    return re.match(br'^[a-zA-Z][a-zA-Z0-9_-]*$', nome) is not None
+    return re.match(br"^[a-zA-Z][a-zA-Z0-9_-]*$", nome) is not None
 
 
 def sair(conexao):
-    print(conexao, 'conexão fechada')
+    print(conexao, "conexão fechada")
     conexao.fechar()
 
 
-def dados_recebidos(conexao, dados):
-    if dados == b'':
-        return sair(conexao)
+def set_nick(conexao, nick):
+    global apelidos
 
-    if dados.split(b' ', 1)[0] == b'PING':
-        conexao.enviar(b':server PONG server :' + dados.split(b' ', 1)[1])
+    ##verifica se o apelido é valido
+    if not validar_nome(nick):
+        conexao.enviar(
+            b":server 432 "
+            + conexao.apelido
+            + b" "
+            + nick
+            + b" :Erroneous nickname\r\n"
+        )
+
+    ##Verifica se o apelido ja está cadastrado, ignorando se são letrar maiúsculas ou minúsculas
+    elif nick.decode("utf-8").lower() in apelidos:
+        conexao.enviar(
+            b":server 433 "
+            + conexao.apelido
+            + b" "
+            + nick
+            + b" :Nickname is already in use\r\n"
+        )
+
+    ##Verifica se o apelido do usuário é diferente do padrão. Nesse caso é feita a troca de apelidos
+    elif conexao.apelido != b"*":
+        conexao.enviar(b":" + conexao.apelido + b" NICK " + nick + b"\r\n")
+        del apelidos[conexao.apelido.decode("utf-8").lower()]
+
+        ##Armazena o apelido atual em conexao
+        conexao.apelido = nick
+        apelidos[nick.decode("utf-8").lower()] = conexao
+
+    ##Cria um apelido para o usuário
+    else:
+        conexao.enviar(b":server 001 " + nick + b" :Welcome\r\n")
+        conexao.enviar(b":server 422 " + nick + b" :MOTD File is missing\r\n")
+        apelidos[nick.decode("utf-8").lower()] = conexao
+        conexao.apelido = nick
+    print(apelidos)
+
+
+def enviar_mensagem(remetente, destinatario, conteudo):
+    ##Verifica se o destinatário é um canal e se esse canal ja existe
+    if (
+        destinatario.decode("utf-8").startswith("#")
+        and destinatario.decode("utf-8").lower() in canais
+    ):
+        ##Envia a mensagem a todos os usuários do canal
+        for usuario in canais[destinatario.decode("utf-8").lower()]:
+            if usuario.apelido != remetente:
+                usuario.enviar(
+                    b":"
+                    + remetente
+                    + b" PRIVMSG "
+                    + destinatario
+                    + b" "
+                    + conteudo
+                    + b"\r\n"
+                )
+    ##Se não for um canal, é um usuário
+    elif destinatario.decode("utf-8").lower() in apelidos:
+        apelidos[destinatario.decode("utf-8").lower()].enviar(
+            b":" + remetente + b" PRIVMSG " + destinatario + b" " + conteudo + b"\r\n"
+        )
+
+
+def entrar_canal(conexao, canal):
+    global canais
+    # Verifica se é um canal e se tem os caracteres corretos
+    if not canal.decode("utf-8").startswith("#") or not validar_nome(
+        canal.split(b"#")[1]
+    ):
+        conexao.enviar(b":server 403 #" + canal + b" :No such channel\r\n")
+
+    elif not canal.decode("utf-8").lower() in canais:
+        canais[canal.decode("utf-8").lower()] = []
+
+    ##Adiciona o usuário ao canal e avisa os outros usuários da entrada do novo membro
+    canais[canal.decode("utf-8").lower()].append(conexao)
+    for usuario in canais[canal.decode("utf-8").lower()]:
+        usuario.enviar(b":" + conexao.apelido + b" JOIN" + b" :" + canal + b"\r\n")
+    print(canais)
+
+
+def dados_recebidos(conexao, dados):
+    ##Se a mensagem não terminar em \n então certamente tem uma mensagem incompleta
+    temResiduo = not dados.endswith(b"\n")
+
+    ##Separa todos os comandos que possam vir de uma vez
+    comandos = dados.split(b"\n")
+
+    if not temResiduo:
+        del comandos[-1]
+
+    global residuos
+    index = 0
+
+    ##Itera por todos os comandos
+    for comando in comandos:
+        ##Se existir alguma mensagem incompleta, ela está na ultima posição
+        if index == len(comandos) and temResiduo:
+            residuos += comando
+        else:
+            comando = comando + b"\n"
+            comando = residuos + comando
+            residuos = b""
+
+            if comando == b"":
+                return sair(conexao)
+
+            if comando.split(b" ", 1)[0] == b"PING":
+                conexao.enviar(b":server PONG server :" + comando.split(b" ", 1)[1])
+
+            ##Para passar nos testes, foi necessário acrescentar o split no \r, mas a formatação fica estranha. Para teste local, pode tirar o \r
+            if comando.split(b" ", 1)[0] == b"NICK":
+                set_nick(conexao, comando.split(b" ", 1)[1].split(b"\r\n", 1)[0])
+
+            if comando.split(b" ", 1)[0] == b"PRIVMSG":
+                enviar_mensagem(
+                    conexao.apelido,
+                    comando.split(b" ", 2)[1],
+                    comando.split(b" ", 2)[2].split(b"\r\n")[0],
+                )
+            if comando.split(b" ", 1)[0] == b"JOIN":
+                entrar_canal(conexao, comando.split(b" ")[1].split(b"\r\n")[0])
+
+        index = index + 1
 
     print(conexao, dados)
 
 
 def conexao_aceita(conexao):
-    print(conexao, 'nova conexão')
+    print(conexao, "nova conexão")
+    conexao.apelido = b"*"
     conexao.registrar_recebedor(dados_recebidos)
 
 
