@@ -102,6 +102,13 @@ def entrar_canal(conexao, canal):
     for usuario in canais[canal.decode("utf-8").lower()]:
         usuario.enviar(b":" + conexao.apelido + b" JOIN" + b" :" + canal + b"\r\n")
 
+def sair_canal(conexao, canal):
+    canais[canal.decode("utf-8").lower()].remove(conexao)
+    conexao.enviar(b":" + conexao.apelido + b" PART " + canal + b"\r\n")
+    for usuario in canais[canal.decode("utf-8").lower()]:
+        usuario.enviar(b":" + conexao.apelido + b" PART " + canal + b"\r\n")
+
+
 
 def dados_recebidos(conexao, dados):
     ##Se a mensagem não terminar em \n então certamente tem uma mensagem incompleta
@@ -144,6 +151,8 @@ def dados_recebidos(conexao, dados):
                 )
             if comando.split(b" ", 1)[0] == b"JOIN":
                 entrar_canal(conexao, comando.split(b" ")[1].split(b"\r\n")[0])
+            if comando.split(b" ", 1)[0] == b"PART":
+                sair_canal(conexao, comando.split(b" ")[1].split(b"\r\n")[0])
 
         index = index + 1
 
