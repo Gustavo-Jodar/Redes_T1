@@ -59,7 +59,6 @@ def set_nick(conexao, nick):
         conexao.enviar(b":server 422 " + nick + b" :MOTD File is missing\r\n")
         apelidos[nick.decode("utf-8").lower()] = conexao
         conexao.apelido = nick
-    print(apelidos)
 
 
 def enviar_mensagem(remetente, destinatario, conteudo):
@@ -102,7 +101,6 @@ def entrar_canal(conexao, canal):
     canais[canal.decode("utf-8").lower()].append(conexao)
     for usuario in canais[canal.decode("utf-8").lower()]:
         usuario.enviar(b":" + conexao.apelido + b" JOIN" + b" :" + canal + b"\r\n")
-    print(canais)
 
 
 def dados_recebidos(conexao, dados):
@@ -148,8 +146,6 @@ def dados_recebidos(conexao, dados):
                 entrar_canal(conexao, comando.split(b" ")[1].split(b"\r\n")[0])
 
         index = index + 1
-
-    print(conexao, dados)
 
 
 def conexao_aceita(conexao):
