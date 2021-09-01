@@ -102,6 +102,7 @@ def entrar_canal(conexao, canal):
     for usuario in canais[canal.decode("utf-8").lower()]:
         usuario.enviar(b":" + conexao.apelido + b" JOIN" + b" :" + canal + b"\r\n")
 
+
 def sair_canal(conexao, canal):
     canais[canal.decode("utf-8").lower()].remove(conexao)
     conexao.enviar(b":" + conexao.apelido + b" PART " + canal + b"\r\n")
@@ -109,8 +110,9 @@ def sair_canal(conexao, canal):
         usuario.enviar(b":" + conexao.apelido + b" PART " + canal + b"\r\n")
 
 
-
 def dados_recebidos(conexao, dados):
+    if dados == b"":
+        return sair(conexao)
     ##Se a mensagem não terminar em \n então certamente tem uma mensagem incompleta
     temResiduo = not dados.endswith(b"\n")
 
@@ -126,15 +128,12 @@ def dados_recebidos(conexao, dados):
     ##Itera por todos os comandos
     for comando in comandos:
         ##Se existir alguma mensagem incompleta, ela está na ultima posição
-        if index == len(comandos) and temResiduo:
+        if index == len(comandos) - 1 and temResiduo:
             residuos += comando
         else:
             comando = comando + b"\n"
             comando = residuos + comando
             residuos = b""
-
-            if comando == b"":
-                return sair(conexao)
 
             if comando.split(b" ", 1)[0] == b"PING":
                 conexao.enviar(b":server PONG server :" + comando.split(b" ", 1)[1])
