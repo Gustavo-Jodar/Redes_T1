@@ -18,6 +18,20 @@ def validar_nome(nome):
 
 def sair(conexao):
     print(conexao, "conexão fechada")
+    #array contendo NICKS já informados sobre a saída de um cliente do servidor
+    apelidos_informados = []
+
+    #retira o cliente dos canais que ele pertencia e avisa os seus membros
+    for canal in canais:
+        if(conexao in canais[canal]):
+            canais[canal].remove(conexao)
+            
+            for usuario in canais[canal]:
+                if usuario not in apelidos_informados:
+                    usuario.enviar(b":" + conexao.apelido.split(b"\n")[0] + b" QUIT " + b":Connection closed\r\n")
+                    apelidos_informados.append(usuario)
+    
+    del apelidos[conexao.apelido.decode("utf-8").lower()]
     conexao.fechar()
 
 
