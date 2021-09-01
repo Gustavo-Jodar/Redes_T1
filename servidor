@@ -42,9 +42,9 @@ def set_nick(conexao, nick):
     if not validar_nome(nick):
         conexao.enviar(
             b":server 432 "
-            + conexao.apelido
+            + conexao.apelido.split(b"\n")[0]
             + b" "
-            + nick
+            + nick.split(b"\n")[0]
             + b" :Erroneous nickname\r\n"
         )
 
@@ -52,15 +52,15 @@ def set_nick(conexao, nick):
     elif nick.decode("utf-8").lower() in apelidos:
         conexao.enviar(
             b":server 433 "
-            + conexao.apelido
+            + conexao.apelido.split(b"\n")[0]
             + b" "
-            + nick
+            + nick.split(b"\n")[0]
             + b" :Nickname is already in use\r\n"
         )
 
     ##Verifica se o apelido do usuário é diferente do padrão. Nesse caso é feita a troca de apelidos
     elif conexao.apelido != b"*":
-        conexao.enviar(b":" + conexao.apelido + b" NICK " + nick + b"\r\n")
+        conexao.enviar(b":" + conexao.apelido.split(b"\n")[0] + b" NICK " + nick.split(b"\n")[0] + b"\r\n")
         del apelidos[conexao.apelido.decode("utf-8").lower()]
 
         ##Armazena o apelido atual em conexao
@@ -69,8 +69,8 @@ def set_nick(conexao, nick):
 
     ##Cria um apelido para o usuário
     else:
-        conexao.enviar(b":server 001 " + nick + b" :Welcome\r\n")
-        conexao.enviar(b":server 422 " + nick + b" :MOTD File is missing\r\n")
+        conexao.enviar(b":server 001 " + nick.split(b"\n")[0] + b" :Welcome\r\n")
+        conexao.enviar(b":server 422 " + nick.split(b"\n")[0] + b" :MOTD File is missing\r\n")
         apelidos[nick.decode("utf-8").lower()] = conexao
         conexao.apelido = nick
 
@@ -115,7 +115,7 @@ def entrar_canal(conexao, canal):
     ##Adiciona o usuário ao canal e avisa os outros usuários da entrada do novo membro
     canais[canal.decode("utf-8").lower()].append(conexao)
     for usuario in canais[canal.decode("utf-8").lower()]:
-        usuario.enviar(b":" + conexao.apelido + b" JOIN" + b" :" + canal + b"\r\n")
+        usuario.enviar(b":" + conexao.apelido.split(b"\n")[0] + b" JOIN" + b" :" + canal.split(b"\n")[0] + b"\r\n")
         print(usuario)
         nomes_integrantes.append(usuario.apelido.split(b"\n")[0].decode("utf-8").lower())
 
@@ -137,9 +137,9 @@ def entrar_canal(conexao, canal):
 
 def sair_canal(conexao, canal):
     canais[canal.decode("utf-8").lower()].remove(conexao)
-    conexao.enviar(b":" + conexao.apelido + b" PART " + canal + b"\r\n")
+    conexao.enviar(b":" + conexao.apelido.split(b"\n")[0] + b" PART " + canal + b"\r\n")
     for usuario in canais[canal.decode("utf-8").lower()]:
-        usuario.enviar(b":" + conexao.apelido + b" PART " + canal + b"\r\n")
+        usuario.enviar(b":" + conexao.apelido.split(b"\n")[0] + b" PART " + canal + b"\r\n")
 
 
 def dados_recebidos(conexao, dados):
