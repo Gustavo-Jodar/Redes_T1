@@ -111,10 +111,28 @@ def entrar_canal(conexao, canal):
     elif not canal.decode("utf-8").lower() in canais:
         canais[canal.decode("utf-8").lower()] = []
 
+    nomes_integrantes = []
     ##Adiciona o usuário ao canal e avisa os outros usuários da entrada do novo membro
     canais[canal.decode("utf-8").lower()].append(conexao)
     for usuario in canais[canal.decode("utf-8").lower()]:
         usuario.enviar(b":" + conexao.apelido + b" JOIN" + b" :" + canal + b"\r\n")
+        print(usuario)
+        nomes_integrantes.append(usuario.apelido.split(b"\n")[0].decode("utf-8").lower())
+
+    #lista de nomes dos membros do canal ao novo membro
+    conexao.enviar(b":server 353 " + conexao.apelido.split(b"\n")[0] + b" = " + canal.split(b"\n")[0] + b" :")
+
+    #nomes em ordem alfabética 
+    nomes_integrantes.sort()
+    contador = 1
+    for integrante in nomes_integrantes:
+        if contador < len(nomes_integrantes):
+            conexao.enviar(str.encode(integrante) + b" ")
+        else:
+            conexao.enviar(str.encode(integrante) + b"\r\n")
+        contador +=1
+    #finaliza mensagem
+    conexao.enviar(b":server 366 "+ conexao.apelido.split(b"\n")[0]+ b" "+ canal.split(b"\n")[0] + b" :End of /NAMES list.\r\n")
 
 
 def sair_canal(conexao, canal):
