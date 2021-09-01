@@ -31,7 +31,11 @@ def sair(conexao):
                     usuario.enviar(b":" + conexao.apelido.split(b"\n")[0] + b" QUIT " + b":Connection closed\r\n")
                     apelidos_informados.append(usuario)
     
-    del apelidos[conexao.apelido.decode("utf-8").lower()]
+    try:
+        del apelidos[conexao.apelido.decode("utf-8").lower()]
+    except:
+        print("¯\_(ツ)_/¯")
+
     conexao.fechar()
 
 
